@@ -6,7 +6,7 @@
     <meta name="description" content="داشبورد تحلیل پیشرفته سئو برای تحلیل کلمات کلیدی، Google Search Console، ساختار صفحات و شکاف محتوایی رقبا.">
     <meta name="robots" content="noindex, nofollow">
     <meta name="theme-color" content="#6366f1">
-    <title>داشبورد تحلیل پیشرفته سئو برای تحلیل کلمات کلیدی</title>
+    <title>داشبورد تحلیل سئو برای تحلیل کلمات کلیدی</title>
     <style>
         /* Import Vazirmatn Font */
         @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;800;900&display=swap');
@@ -1401,6 +1401,37 @@ function computeMultiSourceFootprintScore(phrase) {
     return { score: finalScore, badges: foundBadges };
 }
 
+// محاسبهٔ «تعداد حضور در سکشن‌ها» دقیقاً با همان منطق بخش ۲
+// (۱۰۰ کلمه و عبارت کلیدی برتر برای پوشش محتوایی).
+// خروجی: لیست برچسب‌ها + تعداد سکشن‌هایی که عبارت در آن‌ها حضور دارد.
+// بخش‌های شکاف کلمات کلیدی هم از همین تابع استفاده می‌کنند تا معیار
+// مرتب‌سازی در کل داشبورد یکسان باشد.
+function computePresenceBadges(phrase) {
+    const phraseNorm = normalizeText(phrase);
+    const badges = new Set();
+    if (!phraseNorm) return { badges: [], presenceCount: 0 };
+
+    if (targetKeywordsNormalizedSet.has(phraseNorm) || targetKeywordsNormalizedList.some(k => k.norm.includes(phraseNorm))) {
+        badges.add('KR');
+    }
+
+    if (parsedGscData.some(g => g.normQuery.includes(phraseNorm))) {
+        badges.add('GSC');
+    }
+
+    competitorSources.forEach((comp, idx) => {
+        if (phraseExists(phraseNorm, comp)) {
+            badges.add(`C${idx + 1}`);
+        }
+    });
+
+    if (pasfNormalizedList.some(p => p.norm.includes(phraseNorm))) badges.add('PASF');
+    if (paafNormalizedList.some(p => p.norm.includes(phraseNorm))) badges.add('PAAF');
+
+    const list = Array.from(badges);
+    return { badges: list, presenceCount: list.length };
+}
+
 function getBadgeHtml(b) {
     let bClass = 'badge-comp';
     let titleAttr = '';
@@ -1556,17 +1587,18 @@ async function renderKeywordGapAnalysis(container, statusDiv) {
     for (let i = 0; i < rawOurGaps.length; i += chunkSize) {
         const chunk = rawOurGaps.slice(i, i + chunkSize);
         chunk.forEach(gapKw => {
-            const result = computeMultiSourceFootprintScore(gapKw);
-            gapScores.push({ phrase: gapKw, score: result.score, badges: result.badges });
+            const result = computePresenceBadges(gapKw);
+            gapScores.push({ phrase: gapKw, presenceCount: result.presenceCount, badges: result.badges });
         });
 
         if (rawOurGaps.length > 300 && statusDiv) {
-            statusDiv.innerText = `⏳ در حال محاسبه امتیاز شکاف‌ها: ${Math.min(i + chunkSize, rawOurGaps.length)} از ${rawOurGaps.length}...`;
+            statusDiv.innerText = `⏳ در حال محاسبه حضور شکاف‌ها: ${Math.min(i + chunkSize, rawOurGaps.length)} از ${rawOurGaps.length}...`;
             await yieldToMain();
         }
     }
 
-    gapScores.sort((a, b) => b.score - a.score);
+    // مرتب‌سازی بر اساس تعداد حضور در سکشن‌ها (دقیقاً مانند بخش ۲)
+    gapScores.sort((a, b) => b.presenceCount - a.presenceCount);
     const top100Gaps = gapScores.slice(0, 100);
 
     let html = `
@@ -1578,7 +1610,7 @@ async function renderKeywordGapAnalysis(container, statusDiv) {
         html += `
             <div class="card gap-kw-card" style="margin-top: 1rem;">
                 <h3 style="margin-top:0; color:var(--accent-amber); font-size:1.15rem;"><span class="ai-badge" style="background:var(--accent-amber);">🎯 شکاف‌های استراتژیک</span> ۱۰۰ شکاف محتوایی با بالاترین اولویت تولید</h3>
-                <p style="font-size:0.85rem; color:#b45309; margin-bottom:0.5rem;">کلمات کلیدی گمشده بر اساس وزن اهمیت در منابع مختلف مرتب شده‌اند:</p>
+                <p style="font-size:0.85rem; color:#b45309; margin-bottom:0.5rem;">کلمات کلیدی گمشده بر اساس بیشترین میزان حضور در سکشن‌های مختلف ورودی مرتب شده‌اند:</p>
                 <div class="suggested-kw-list scrollable-kw-list">
                     ${top100Gaps.map((item, index) => {
                         const badgesHtml = item.badges.map(b => getBadgeHtml(b)).join(' ');
@@ -1587,7 +1619,7 @@ async function renderKeywordGapAnalysis(container, statusDiv) {
                             <div class="suggested-kw-item" style="border-color: var(--border-subtle); border-right: 3px solid var(--accent-amber); flex-direction: column; align-items: flex-start; gap: 0.3rem;">
                                 <div style="display: flex; justify-content: space-between; width: 100%;">
                                     <span><strong>#${index + 1}</strong>${escapeHtml(item.phrase)}</span>
-                                    <span class="gap-score">امتیاز شکاف: ${item.score}</span>
+                                    <span class="gap-score">تعداد حضور: ${item.presenceCount} سکشن</span>
                                 </div>
                                 <div>${badgesHtml}</div>
                             </div>
@@ -1896,7 +1928,7 @@ function renderOurGapBadgesHtml(items) {
             <div style="background: var(--bg-neutral-light); border: 1px solid var(--border-subtle); border-right: 3px solid var(--accent-rose); color: #991b1b; padding: 0.4rem 0.8rem; border-radius: var(--radius-sm); font-size: 0.85rem; font-weight: 600; display: inline-flex; flex-direction: column; gap: 0.2rem;">
                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
                     <span>${escapeHtml(item.phrase)}</span>
-                    <span style="font-size: 0.72rem; background: var(--bg-surface); border: 1px solid var(--border-subtle); color: #881337; padding: 0.1rem 0.38rem; border-radius: 4px;">امتیاز: ${item.score}</span>
+                    <span style="font-size: 0.72rem; background: var(--bg-surface); border: 1px solid var(--border-subtle); color: #881337; padding: 0.1rem 0.38rem; border-radius: 4px;">حضور: ${item.presenceCount} سکشن</span>
                 </div>
                 <div>${badgesHtml}</div>
             </div>
@@ -1911,7 +1943,7 @@ function renderCompGapBadgesHtml(items) {
             <div style="background: var(--bg-neutral-light); border: 1px solid var(--border-subtle); border-right: 3px solid var(--accent-amber); color: #92400e; padding: 0.35rem 0.7rem; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; display: inline-flex; flex-direction: column; gap: 0.2rem;">
                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
                     <span>${escapeHtml(item.phrase)}</span>
-                    <span class="comp-gap-score">امتیاز: ${item.score}</span>
+                    <span class="comp-gap-score">حضور: ${item.presenceCount} سکشن</span>
                 </div>
                 <div>${badgesHtml}</div>
             </div>
@@ -1970,8 +2002,8 @@ async function renderDetailedGapSections(container, statusDiv) {
         for (let i = 0; i < rawOurGaps.length; i += chunkSize) {
             const chunk = rawOurGaps.slice(i, i + chunkSize);
             chunk.forEach(kw => {
-                const res = computeMultiSourceFootprintScore(kw);
-                rawCalculatedOurGaps.push({ phrase: kw, score: res.score, badges: res.badges });
+                const res = computePresenceBadges(kw);
+                rawCalculatedOurGaps.push({ phrase: kw, presenceCount: res.presenceCount, badges: res.badges });
             });
             if (rawOurGaps.length > 500 && statusDiv) {
                 statusDiv.innerText = `⏳ در حال محاسبه شکاف‌های صفحه خودی: ${Math.min(i + chunkSize, rawOurGaps.length)} از ${rawOurGaps.length}...`;
@@ -1979,7 +2011,8 @@ async function renderDetailedGapSections(container, statusDiv) {
             }
         }
 
-        rawCalculatedOurGaps.sort((a, b) => b.score - a.score);
+        // مرتب‌سازی بر اساس تعداد حضور در سکشن‌ها (مانند بخش ۲)
+        rawCalculatedOurGaps.sort((a, b) => b.presenceCount - a.presenceCount);
 
         const ourGapsBadges = renderOurGapBadgesHtml(rawCalculatedOurGaps);
 
@@ -2015,8 +2048,8 @@ async function renderDetailedGapSections(container, statusDiv) {
             for (let i = 0; i < rawCompGaps.length; i += chunkSize) {
                 const chunk = rawCompGaps.slice(i, i + chunkSize);
                 chunk.forEach(kw => {
-                    const res = computeMultiSourceFootprintScore(kw);
-                    sortedCompGaps.push({ phrase: kw, score: res.score, badges: res.badges });
+                    const res = computePresenceBadges(kw);
+                    sortedCompGaps.push({ phrase: kw, presenceCount: res.presenceCount, badges: res.badges });
                 });
                 if (rawCompGaps.length > 500 && statusDiv) {
                     statusDiv.innerText = `⏳ در حال محاسبه شکاف‌های ${comp.label}: ${Math.min(i + chunkSize, rawCompGaps.length)} از ${rawCompGaps.length}...`;
@@ -2024,7 +2057,7 @@ async function renderDetailedGapSections(container, statusDiv) {
                 }
             }
 
-            sortedCompGaps.sort((a, b) => b.score - a.score);
+            sortedCompGaps.sort((a, b) => b.presenceCount - a.presenceCount);
 
             const containerId = `comp-gaps-badge-container-${compIdx}`;
             const countId = `comp-gaps-count-${compIdx}`;
@@ -2053,5 +2086,5 @@ async function renderDetailedGapSections(container, statusDiv) {
 }
 
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a3f9192f1c94c3f1',t:'MTc5MDE2MTc3OQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>
