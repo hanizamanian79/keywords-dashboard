@@ -6,7 +6,7 @@
     <meta name="description" content="داشبورد تحلیل پیشرفته سئو برای تحلیل کلمات کلیدی، Google Search Console، ساختار صفحات و شکاف محتوایی رقبا.">
     <meta name="robots" content="noindex, nofollow">
     <meta name="theme-color" content="#6366f1">
-    <title>داشبورد تحلیل کلمات کلیدی</title>
+    <title>داشبورد تحلیل پیشرفته سئو برای تحلیل کلمات کلیدی</title>
     <style>
         /* Import Vazirmatn Font */
         @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;800;900&display=swap');
@@ -1007,6 +1007,8 @@ let targetKeywordsNormalizedList = [];
 let gscQueriesMap = new Map();
 let pasfNormalizedList = [];
 let paafNormalizedList = [];
+let pasfNormalizedSet = new Set();
+let paafNormalizedSet = new Set();
 
 let rawCalculatedOurGaps = [];
 let rawCalculatedCompGapsList = []; // [{ containerId, countId, wrapperId, gaps: [...] }]
@@ -1069,11 +1071,29 @@ function escapeHtml(value = "") {
         .replace(/'/g, "&#039;");
 }
 
+// توکن‌سازی: هر زبانی (لاتین، ترکی، روسی، عربی و...) پشتیبانی می‌شود.
+// - نیم‌فاصله (ZWNJ) فقط «داخل» کلمه‌ی فارسی/عربی حفظ می‌شود (می‌شود ≠ می شود)
+// - هیچ توکن کوتاهی (مثل «و») حذف نمی‌شود
+// - علائم نگارشی (، ؟ ؛ ٪ ...) جزو توکن نمی‌شوند
+// - خط فارسی/عربی و سایر خطوط حتی در صورت چسبیدن، توکن جدا هستند («سئوSEO» → «سئو» و «seo»)
+const _TOK_AR = "(?:(?=\\p{Script=Arabic})[\\p{L}\\p{N}\\p{M}]|[\\u0660-\\u0669])";
+const _TOK_OT = "(?:(?![\\u0660-\\u0669])(?!\\p{Script=Arabic})[\\p{L}\\p{N}\\p{M}])";
+const TOKEN_REGEX = new RegExp(_TOK_AR + "+(?:\\u200c" + _TOK_AR + "+)*|" + _TOK_OT + "+", "gu");
+
 function tokenizeText(text = "") {
-    const normalized = normalizeText(text);
-    // فارسی و لاتین باید حتی در صورت چسبیدن به هم نیز توکن‌های جدا باشند؛
-    // بنابراین «سئوSEO» به دو کلمه «سئو» و «seo» تبدیل می‌شود، نه یک توکن مشترک.
-    return normalized.match(/[\u0600-\u06FF\u200C]+|[a-zA-Z0-9]+/g) || [];
+    return normalizeText(text).match(TOKEN_REGEX) || [];
+}
+
+// کلید یکتای یک عبارت برای «تطابق دقیق» بین لیست‌ها (KR / GSC / PASF / PAAF):
+// توکن‌ها با یک فاصله به هم وصل می‌شوند و نیم‌فاصله‌ی داخل کلمات حفظ می‌ماند.
+function keyOf(text = "") {
+    return tokenizeText(text).join(" ");
+}
+
+function comparePresence(a, b) {
+    return (b.presenceCount - a.presenceCount)
+        || ((b.impressions || 0) - (a.impressions || 0))
+        || a.phrase.localeCompare(b.phrase, "fa");
 }
 
 function yieldToMain() {
@@ -1132,7 +1152,12 @@ function findHeaderIndex(headers, names) {
     return names.reduce((found, name) => {
         if (found !== -1) return found;
         const target = normalizeText(name);
-        return normalizedHeaders.findIndex(h => h === target || h.includes(target));
+        // اولویت اول: تطابق دقیق در کل ستون‌ها (مثلاً "CTR")، صرف‌نظر از موقعیت آن در فایل.
+        const exactIdx = normalizedHeaders.findIndex(h => h === target);
+        if (exactIdx !== -1) return exactIdx;
+        // فقط اگر هیچ ستونی تطابق دقیق نداشت، به‌عنوان راه‌حل جایگزین سراغ تطابق جزئی می‌رویم
+        // (مثلاً وقتی هدر واقعی چیزی مثل "نرخ کلیک (CTR)" است).
+        return normalizedHeaders.findIndex(h => h.includes(target));
     }, -1);
 }
 
@@ -1191,6 +1216,7 @@ async function triggerUnifiedExtractionWorkflow() {
         globalPerSourcePhrases = {};
         competitorSources = [];
         parsedGscData = [];
+        cachedAllInputCandidates = [];
 
         statusDiv.innerText = "⏳ در حال ایندکس‌گذاری کلمات کلیدی...";
         await yieldToMain();
@@ -1201,7 +1227,7 @@ async function triggerUnifiedExtractionWorkflow() {
         targetKeywordsNormalizedSet = new Set();
         targetKeywordsNormalizedList = [];
         targetKeywordsList.forEach(k => {
-            const norm = normalizeText(k);
+            const norm = keyOf(k);
             if (norm) {
                 targetKeywordsNormalizedSet.add(norm);
                 targetKeywordsNormalizedList.push({ original: k, norm });
@@ -1237,7 +1263,7 @@ async function triggerUnifiedExtractionWorkflow() {
                         const qStr = String(parts[qIdx] ?? "").trim();
                         parsedGscData.push({
                             query: qStr,
-                            normQuery: normalizeText(qStr),
+                            normQuery: keyOf(qStr),
                             clicks: parseNumber(parts[cIdx]),
                             impressions: parseNumber(parts[iIdx]),
                             ctr: String(parts[ctrIdx] ?? "-").trim() || "-",
@@ -1275,6 +1301,7 @@ async function triggerUnifiedExtractionWorkflow() {
                 const fallbackLabel = `رقیب شماره ${index + 1} SERP`;
                 const compObj = parseHtmlDocument(fallbackLabel, htmlText);
                 // اگر دامنه به‌صورت خودکار از کد HTML تشخیص داده شده باشد، همان را جایگزین عنوان عمومی می‌کنیم
+                compObj.slot = index + 1;
                 if (compObj.domain) {
                     compObj.label = `رقیب ${index + 1}: ${compObj.domain}`;
                 }
@@ -1287,8 +1314,10 @@ async function triggerUnifiedExtractionWorkflow() {
         pasfList = document.getElementById('pasf-input').value.split(/\r?\n/).map(p => p.trim()).filter(Boolean);
         paafList = document.getElementById('paaf-input').value.split(/\r?\n/).map(p => p.trim()).filter(Boolean);
         
-        pasfNormalizedList = pasfList.map(p => ({ original: p, norm: normalizeText(p) }));
-        paafNormalizedList = paafList.map(p => ({ original: p, norm: normalizeText(p) }));
+        pasfNormalizedList = pasfList.map(p => ({ original: p, norm: keyOf(p) }));
+        paafNormalizedList = paafList.map(p => ({ original: p, norm: keyOf(p) }));
+        pasfNormalizedSet = new Set(pasfNormalizedList.map(p => p.norm));
+        paafNormalizedSet = new Set(paafNormalizedList.map(p => p.norm));
 
         if (parsedSourcesMemory.length === 0 && parsedGscData.length === 0 && targetKeywordsList.length === 0) {
             throw new Error("لطفا حداقل کلمات کلیدی، فایل GSC یا کدهای HTML صفحه خودی و رقبا را وارد کنید.");
@@ -1297,6 +1326,10 @@ async function triggerUnifiedExtractionWorkflow() {
         statusDiv.innerText = "📊 در حال رندر گزارش سرچ کنسول...";
         await yieldToMain();
         renderGscInsights(gscSection);
+
+        statusDiv.innerText = "📊 در حال ارزیابی عبارات ورودی (KR + GSC + PASF + PAAF)...";
+        await yieldToMain();
+        cachedAllInputCandidates = await buildAllInputCandidates(statusDiv);
 
         statusDiv.innerText = "📊 در حال محاسبه عبارات کلیدی پیشنهادی...";
         await yieldToMain();
@@ -1564,21 +1597,56 @@ function phraseExists(phrase, sourceObjOrText) {
     return false;
 }
 
+// تطابق یک عبارت با لیست تحقیق کلمات کلیدی (Keyword Research).
+// این تطابق عمداً «دقیق و کامل» است، نه شامل‌شدن (substring) به هیچ جهتی؛
+// یعنی عبارت باید کلمه‌به‌کلمه، با همان فاصله‌ها و نیم‌فاصله‌ها (ZWNJ)، دقیقاً
+// برابر یکی از کلمات کلیدی وارد شده باشد تا بج KR بگیرد. مثلاً "کفش مردانه"
+// و "خرید کفش مردانه چرم" دو عبارت متفاوت‌اند و نباید هر دو بج KR بگیرند.
+// چون normalizeText فاصله و نیم‌فاصله را با هم یکی نمی‌کند، این تفاوت‌ها در
+// همین تطابق دقیق هم به‌درستی حفظ می‌شوند.
+// نکته مهم: این تابع تنها و یگانه منبع تطابق KR در کل داشبورد است — قبلاً
+// بخش‌های مختلف (بخش ۲، ۳، ۶ و ۷) هرکدام این تطابق را جداگانه و با منطق
+// متفاوتی پیاده‌سازی کرده بودند، که باعث می‌شد یک عبارت واحد بسته به اینکه
+// در کدام بخش رندر می‌شود، برچسب/امتیاز متفاوتی بگیرد.
+function matchesTargetKeywords(phraseNorm) {
+    if (!phraseNorm) return false;
+    return targetKeywordsNormalizedSet.has(phraseNorm);
+}
+
+// همان قانون تطابق دقیق KR، برای کوئری‌های گوگل سرچ کنسول، PASF و PAAF هم اعمال می‌شود:
+// عبارت باید کلمه‌به‌کلمه (با همان فاصله/نیم‌فاصله) دقیقاً برابر یک ردیف از آن لیست باشد،
+// نه صرفاً زیررشته‌ی آن یا شامل آن. این سه تابع هم — مثل matchesTargetKeywords — تنها و
+// یگانه منبع تطابق GSC/PASF/PAAF در کل داشبورد هستند.
+function matchesGscQueries(phraseNorm) {
+    if (!phraseNorm) return false;
+    return gscQueriesMap.has(phraseNorm);
+}
+
+function matchesPasf(phraseNorm) {
+    if (!phraseNorm) return false;
+    return pasfNormalizedSet.has(phraseNorm);
+}
+
+function matchesPaaf(phraseNorm) {
+    if (!phraseNorm) return false;
+    return paafNormalizedSet.has(phraseNorm);
+}
+
 function computeMultiSourceFootprintScore(phrase) {
-    const phraseNorm = normalizeText(phrase);
+    const phraseNorm = keyOf(phrase);
     if (!phraseNorm) return { score: 0, badges: [] };
 
     let score = 5;
     let foundBadges = [];
 
-    if (targetKeywordsNormalizedSet.has(phraseNorm) || targetKeywordsNormalizedList.some(k => k.norm.includes(phraseNorm) || phraseNorm.includes(k.norm))) {
+    if (matchesTargetKeywords(phraseNorm)) {
         if (!foundBadges.includes('KR')) foundBadges.push('KR');
         score += 20;
     }
 
     let gscMatches = [];
     parsedGscData.forEach(g => {
-        if (g.normQuery === phraseNorm || g.normQuery.includes(phraseNorm)) {
+        if (g.normQuery === phraseNorm) {
             gscMatches.push(g);
         }
     });
@@ -1590,18 +1658,18 @@ function computeMultiSourceFootprintScore(phrase) {
 
     competitorSources.forEach((comp, index) => {
         if (phraseExists(phraseNorm, comp)) {
-            const compLabel = `C${index + 1}`;
+            const compLabel = `C${comp.slot}`;
             if (!foundBadges.includes(compLabel)) foundBadges.push(compLabel);
             score += 15;
         }
     });
 
-    if (pasfNormalizedList.some(p => p.norm === phraseNorm || p.norm.includes(phraseNorm))) {
+    if (matchesPasf(phraseNorm)) {
         if (!foundBadges.includes('PASF')) foundBadges.push('PASF');
         score += 20;
     }
 
-    if (paafNormalizedList.some(p => p.norm === phraseNorm || p.norm.includes(phraseNorm))) {
+    if (matchesPaaf(phraseNorm)) {
         if (!foundBadges.includes('PAAF')) foundBadges.push('PAAF');
         score += 20;
     }
@@ -1616,26 +1684,26 @@ function computeMultiSourceFootprintScore(phrase) {
 // بخش‌های شکاف کلمات کلیدی هم از همین تابع استفاده می‌کنند تا معیار
 // مرتب‌سازی در کل داشبورد یکسان باشد.
 function computePresenceBadges(phrase) {
-    const phraseNorm = normalizeText(phrase);
+    const phraseNorm = keyOf(phrase);
     const badges = new Set();
     if (!phraseNorm) return { badges: [], presenceCount: 0 };
 
-    if (targetKeywordsNormalizedSet.has(phraseNorm) || targetKeywordsNormalizedList.some(k => k.norm.includes(phraseNorm))) {
+    if (matchesTargetKeywords(phraseNorm)) {
         badges.add('KR');
     }
 
-    if (parsedGscData.some(g => g.normQuery.includes(phraseNorm))) {
+    if (matchesGscQueries(phraseNorm)) {
         badges.add('GSC');
     }
 
     competitorSources.forEach((comp, idx) => {
         if (phraseExists(phraseNorm, comp)) {
-            badges.add(`C${idx + 1}`);
+            badges.add(`C${comp.slot}`);
         }
     });
 
-    if (pasfNormalizedList.some(p => p.norm.includes(phraseNorm))) badges.add('PASF');
-    if (paafNormalizedList.some(p => p.norm.includes(phraseNorm))) badges.add('PAAF');
+    if (matchesPasf(phraseNorm)) badges.add('PASF');
+    if (matchesPaaf(phraseNorm)) badges.add('PAAF');
 
     const list = Array.from(badges);
     return { badges: list, presenceCount: list.length };
@@ -1651,8 +1719,8 @@ function getBadgeHtml(b) {
     else if (b === 'PAAF') { bClass = 'badge-paaf'; titleAttr = 'در سوالات پرتکرار کاربران (PAAF) وجود دارد'; }
     else if (b.startsWith('C')) {
         bClass = 'badge-' + b.toLowerCase();
-        const idx = parseInt(b.substring(1), 10) - 1;
-        const comp = competitorSources[idx];
+        const slotNo = parseInt(b.substring(1), 10);
+        const comp = competitorSources.find(c => c.slot === slotNo);
         titleAttr = comp ? (comp.domain ? `در صفحه رقیب: ${comp.domain}` : `در صفحه ${comp.label} وجود دارد`) : `رقیب شماره ${b.substring(1)}`;
     }
     return `<span class="badge ${bClass}" title="${escapeHtml(titleAttr)}">${b}</span>`;
@@ -1700,13 +1768,24 @@ function renderGscInsights(container) {
     container.innerHTML = html;
 }
 
-async function renderTop100SuggestedKeywords(container, statusDiv) {
+// می‌سازد فهرست یکپارچه‌ی همه‌ی عبارات موجود در ورودی‌های «لیستی» کاربر:
+// لیست تحقیق کلمات کلیدی (KR) + کوئری‌های گوگل سرچ کنسول (GSC) + PASF + PAAF.
+// عمداً محتوای صفحه‌ی خودمان و محتوای رقبا در اینجا تولیدکننده‌ی عبارت جدید
+// نیستند — رقبا فقط برای این استفاده می‌شوند که آیا هرکدام از این عبارات را
+// پوشش داده‌اند یا نه (بج C1، C2 و...)، نه برای ساختن عبارت تازه.
+// نتیجه‌ی این تابع فقط یک‌بار در کل فرایند تحلیل محاسبه و کش می‌شود و بین
+// بخش ۲ (کلمات پیشنهادی)، بخش ۳ (شکاف کلمات) و بخش ۷ (شکاف تفکیک‌شده)
+// به اشتراک گذاشته می‌شود — هم برای جلوگیری از محاسبه‌ی تکراری، و هم تا
+// معیار «تعداد حضور در سکشن‌ها» در کل داشبورد دقیقاً یکسان بماند.
+let cachedAllInputCandidates = [];
+
+async function buildAllInputCandidates(statusDiv) {
     const candidateMap = new Map();
 
     function registerPhrase(phrase, badgeName) {
         if (!phrase) return;
-        const norm = normalizeText(phrase);
-        if (!norm || norm.length < 2) return;
+        const norm = keyOf(phrase);
+        if (!norm) return;
         if (!candidateMap.has(norm)) {
             candidateMap.set(norm, { phrase: phrase.trim(), badges: new Set() });
         }
@@ -1723,39 +1802,46 @@ async function renderTop100SuggestedKeywords(container, statusDiv) {
 
     for (let i = 0; i < allPhrases.length; i += chunkSize) {
         const chunk = allPhrases.slice(i, i + chunkSize);
-        
+
         chunk.forEach(item => {
-            const phraseNorm = normalizeText(item.phrase);
+            const phraseNorm = keyOf(item.phrase);
 
             competitorSources.forEach((comp, idx) => {
                 if (phraseExists(phraseNorm, comp)) {
-                    item.badges.add(`C${idx + 1}`);
+                    item.badges.add(`C${comp.slot}`);
                 }
             });
 
-            if (parsedGscData.some(g => g.normQuery.includes(phraseNorm))) {
+            if (matchesGscQueries(phraseNorm)) {
                 item.badges.add('GSC');
             }
 
-            if (targetKeywordsNormalizedSet.has(phraseNorm) || targetKeywordsNormalizedList.some(k => k.norm.includes(phraseNorm))) {
+            if (matchesTargetKeywords(phraseNorm)) {
                 item.badges.add('KR');
             }
 
-            if (pasfNormalizedList.some(p => p.norm.includes(phraseNorm))) item.badges.add('PASF');
-            if (paafNormalizedList.some(p => p.norm.includes(phraseNorm))) item.badges.add('PAAF');
+            if (matchesPasf(phraseNorm)) item.badges.add('PASF');
+            if (matchesPaaf(phraseNorm)) item.badges.add('PAAF');
         });
 
         if (allPhrases.length > 500 && statusDiv) {
-            statusDiv.innerText = `⏳ در حال ارزیابی کلمات پیشنهادی: ${Math.min(i + chunkSize, allPhrases.length)} از ${allPhrases.length}...`;
+            statusDiv.innerText = `⏳ در حال ارزیابی عبارات ورودی: ${Math.min(i + chunkSize, allPhrases.length)} از ${allPhrases.length}...`;
             await yieldToMain();
         }
     }
 
-    const sortedCandidates = Array.from(candidateMap.values()).map(item => ({
+    return Array.from(candidateMap.values()).map(item => ({
         phrase: item.phrase,
         badges: Array.from(item.badges),
-        presenceCount: item.badges.size
-    })).sort((a, b) => b.presenceCount - a.presenceCount).slice(0, 100);
+        presenceCount: item.badges.size,
+        impressions: (gscQueriesMap.get(keyOf(item.phrase)) || []).reduce((sum, g) => sum + g.impressions, 0)
+    }));
+}
+
+async function renderTop100SuggestedKeywords(container, statusDiv) {
+    const sortedCandidates = [...cachedAllInputCandidates]
+        .sort(comparePresence)
+        .slice(0, 100);
 
     if (sortedCandidates.length === 0) return;
 
@@ -1786,31 +1872,17 @@ async function renderTop100SuggestedKeywords(container, statusDiv) {
 }
 
 async function renderKeywordGapAnalysis(container, statusDiv) {
-    let rawOurGaps = [];
+    // شکاف یعنی: از میان همه‌ی عبارات لیستی که کاربر وارد کرده (KR + GSC + PASF + PAAF —
+    // دقیقاً همان استخر بخش ۲)، هرچه در متن خودمان پوشش داده نشده باقی می‌ماند.
+    let gapScores;
     if (ourWebpageData) {
-        rawOurGaps = targetKeywordsList.filter(kw => !phraseExists(kw, ourWebpageData));
+        gapScores = cachedAllInputCandidates.filter(item => !phraseExists(item.phrase, ourWebpageData));
     } else {
-        rawOurGaps = [...targetKeywordsList];
-    }
-
-    const gapScores = [];
-    const chunkSize = 150;
-
-    for (let i = 0; i < rawOurGaps.length; i += chunkSize) {
-        const chunk = rawOurGaps.slice(i, i + chunkSize);
-        chunk.forEach(gapKw => {
-            const result = computePresenceBadges(gapKw);
-            gapScores.push({ phrase: gapKw, presenceCount: result.presenceCount, badges: result.badges });
-        });
-
-        if (rawOurGaps.length > 300 && statusDiv) {
-            statusDiv.innerText = `⏳ در حال محاسبه حضور شکاف‌ها: ${Math.min(i + chunkSize, rawOurGaps.length)} از ${rawOurGaps.length}...`;
-            await yieldToMain();
-        }
+        gapScores = [...cachedAllInputCandidates];
     }
 
     // مرتب‌سازی بر اساس تعداد حضور در سکشن‌ها (دقیقاً مانند بخش ۲)
-    gapScores.sort((a, b) => b.presenceCount - a.presenceCount);
+    gapScores = [...gapScores].sort(comparePresence);
     const top100Gaps = gapScores.slice(0, 100);
 
     let html = `
@@ -2072,15 +2144,16 @@ function renderPerUrlPhraseTable(perSourcePhrases, container) {
 async function renderIntentAnalysisSection(container) {
     if (pasfList.length === 0 && paafList.length === 0) return;
 
-    const sortedPasf = pasfList.map(p => {
-        const res = computeMultiSourceFootprintScore(p);
-        return { text: p, score: res.score, badges: res.badges };
-    }).sort((a, b) => b.score - a.score);
+    // برای هر عبارت PASF/PAAF بررسی می‌شود در کدام منابع به کار رفته است
+    // (KR، GSC، رقبای SERP، و لیست دیگر). حضور در همان لیست خودش شمرده نمی‌شود.
+    const analyzeList = (list, ownBadge) => list.map(p => {
+        const res = computePresenceBadges(p);
+        const badges = res.badges.filter(b => b !== ownBadge);
+        return { text: p, presenceCount: badges.length, badges };
+    }).sort((a, b) => b.presenceCount - a.presenceCount || a.text.localeCompare(b.text, "fa"));
 
-    const sortedPaaf = paafList.map(q => {
-        const res = computeMultiSourceFootprintScore(q);
-        return { text: q, score: res.score, badges: res.badges };
-    }).sort((a, b) => b.score - a.score);
+    const sortedPasf = analyzeList(pasfList, 'PASF');
+    const sortedPaaf = analyzeList(paafList, 'PAAF');
 
     const mapToListHtml = (items) => items.map(item => {
         const badgesHtml = item.badges.map(b => getBadgeHtml(b)).join(' ');
@@ -2091,7 +2164,7 @@ async function renderIntentAnalysisSection(container) {
             <li style="margin-bottom:0.6rem; display: flex; flex-direction: column; gap: 0.2rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <span>${escapeHtml(item.text)}${usedHtml}</span>
-                    <span class="count-badge">امتیاز: ${item.score}</span>
+                    <span class="count-badge">حضور در ${item.presenceCount} منبع</span>
                 </div>
                 <div>${badgesHtml}</div>
             </li>
@@ -2101,7 +2174,7 @@ async function renderIntentAnalysisSection(container) {
     let html = `
         <div class="card" style="margin-top: 2rem;">
             <h2>۶. جستجوهای مرتبط و سوالات پرتکرار کاربران (PASF & PAAF)</h2>
-            <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">مرتب‌شده بر اساس میزان تکرار و هم‌پوشانی:</p>
+            <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">محل استفاده‌ی هر مورد (KR، GSC، رقبای SERP، لیست دیگر و بج used برای صفحه خودی) — مرتب‌شده بر اساس تعداد منابع:</p>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
                 ${sortedPasf.length ? `
                     <div>
@@ -2209,24 +2282,11 @@ async function renderDetailedGapSections(container, statusDiv) {
     `;
 
     if (ourWebpageData) {
-        const rawOurGaps = targetKeywordsList.filter(kw => !phraseExists(kw, ourWebpageData));
-        rawCalculatedOurGaps = [];
-        
-        const chunkSize = 200;
-        for (let i = 0; i < rawOurGaps.length; i += chunkSize) {
-            const chunk = rawOurGaps.slice(i, i + chunkSize);
-            chunk.forEach(kw => {
-                const res = computePresenceBadges(kw);
-                rawCalculatedOurGaps.push({ phrase: kw, presenceCount: res.presenceCount, badges: res.badges });
-            });
-            if (rawOurGaps.length > 500 && statusDiv) {
-                statusDiv.innerText = `⏳ در حال محاسبه شکاف‌های صفحه خودی: ${Math.min(i + chunkSize, rawOurGaps.length)} از ${rawOurGaps.length}...`;
-                await yieldToMain();
-            }
-        }
-
-        // مرتب‌سازی بر اساس تعداد حضور در سکشن‌ها (مانند بخش ۲)
-        rawCalculatedOurGaps.sort((a, b) => b.presenceCount - a.presenceCount);
+        // دقیقاً همان منطق بخش ۳ (استخر مشترک KR+GSC+PASF+PAAF منهای آنچه در متن خودمان پوشش
+        // داده شده)، با این تفاوت که اینجا لیست کامل نمایش داده می‌شود، نه فقط ۱۰۰ مورد برتر.
+        rawCalculatedOurGaps = cachedAllInputCandidates
+            .filter(item => !phraseExists(item.phrase, ourWebpageData))
+            .sort(comparePresence);
 
         const ourGapsBadges = renderOurGapBadgesHtml(rawCalculatedOurGaps);
 
@@ -2241,10 +2301,10 @@ async function renderDetailedGapSections(container, statusDiv) {
                 </div>
                 <p style="font-size: 0.78rem; color: var(--text-muted); margin: 0.3rem 0 0;">این جستجو هم‌زمان روی شکاف‌های صفحه خودی و شکاف‌های تمام رقبا اعمال می‌شود.</p>
 
-                <p style="font-size: 0.85rem; color: var(--text-muted); margin:0.25rem 0 0.5rem 0;">لیست کامل کلمات هدف که در صفحه خودی یافت نشدند:</p>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin:0.25rem 0 0.5rem 0;">لیست کامل عبارات وارد شده (کلمات کلیدی، سرچ‌کنسول، PASF و PAAF) که در صفحه خودی یافت نشدند:</p>
                 <div class="scrollable-box-5items" style="margin-top: 0.5rem;">
                     <div id="our-gaps-badge-container" style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-                        ${rawCalculatedOurGaps.length ? ourGapsBadges : '<span style="color:var(--accent-emerald); font-weight:600;">عالی! تمام کلمات هدف در صفحه شما به کار رفته‌اند.</span>'}
+                        ${rawCalculatedOurGaps.length ? ourGapsBadges : '<span style="color:var(--accent-emerald); font-weight:600;">عالی! تمام عبارات ورودی در صفحه شما به کار رفته‌اند.</span>'}
                     </div>
                 </div>
             </div>
@@ -2252,26 +2312,23 @@ async function renderDetailedGapSections(container, statusDiv) {
     }
 
     if (competitorSources.length > 0) {
-        html += `<h3 style="color: var(--text-heading); margin-top: 1rem;">👥 شکاف کلمات رقبا با لیست تحقیق کلمات</h3>`;
+        html += `<h3 style="color: var(--text-heading); margin-top: 1rem;">👥 شکاف کلمات هر رقیب (عبارات ورودی که در آن رقیب به کار نرفته‌اند)</h3>`;
         for (let compIdx = 0; compIdx < competitorSources.length; compIdx++) {
             const comp = competitorSources[compIdx];
-            const rawCompGaps = targetKeywordsList.filter(kw => !phraseExists(kw, comp));
+            const rawCompGaps = cachedAllInputCandidates.filter(item => !phraseExists(item.phrase, comp));
             
             const sortedCompGaps = [];
             const chunkSize = 200;
             for (let i = 0; i < rawCompGaps.length; i += chunkSize) {
                 const chunk = rawCompGaps.slice(i, i + chunkSize);
-                chunk.forEach(kw => {
-                    const res = computePresenceBadges(kw);
-                    sortedCompGaps.push({ phrase: kw, presenceCount: res.presenceCount, badges: res.badges });
-                });
+                chunk.forEach(item => sortedCompGaps.push(item));
                 if (rawCompGaps.length > 500 && statusDiv) {
                     statusDiv.innerText = `⏳ در حال محاسبه شکاف‌های ${comp.label}: ${Math.min(i + chunkSize, rawCompGaps.length)} از ${rawCompGaps.length}...`;
                     await yieldToMain();
                 }
             }
 
-            sortedCompGaps.sort((a, b) => b.presenceCount - a.presenceCount);
+            sortedCompGaps.sort(comparePresence);
 
             const containerId = `comp-gaps-badge-container-${compIdx}`;
             const countId = `comp-gaps-count-${compIdx}`;
