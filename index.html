@@ -978,6 +978,7 @@
 
         <div class="action-buttons">
             <button type="button" id="start-btn" onclick="triggerUnifiedExtractionWorkflow()">شروع تحلیل پیشرفته ماتریس سئو</button>
+            <button type="button" id="export-md-btn" onclick="exportDashboardToMarkdown()" disabled>دانلود خروجی Markdown</button>
         </div>
         <div id="status-output" class="status-bar"></div>
     </div>
@@ -2356,6 +2357,215 @@ async function renderDetailedGapSections(container, statusDiv) {
     container.innerHTML = html;
 }
 
+</script>
+
+<script>
+/* =============================================================
+   Markdown export
+   Exports the rendered dashboard (including collapsed/read-more
+   content) as a clean, structured .md file. No external library.
+   ============================================================= */
+(function () {
+    const EXPORT_SECTION_IDS = [
+        'gsc-section',
+        'suggested-keywords-section',
+        'gap-analysis-section',
+        'url-matrix-section',
+        'phrase-results-section',
+        'intent-section',
+        'detailed-gaps-section'
+    ];
+
+    function mdEscape(value) {
+        return String(value ?? '')
+            .replace(/\r/g, '')
+            .replace(/[ \t]+\n/g, '\n')
+            .trim();
+    }
+
+    function normalizeWhitespace(value) {
+        return String(value ?? '')
+            .replace(/\u00a0/g, ' ')
+            .replace(/[ \t]+/g, ' ')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim();
+    }
+
+    function cleanClone(root) {
+        const clone = root.cloneNode(true);
+        clone.querySelectorAll('button, input, textarea, select, script, style, .read-more-btn').forEach(el => el.remove());
+        return clone;
+    }
+
+    function inlineText(el) {
+        return normalizeWhitespace(el.textContent || '');
+    }
+
+    function convertTable(table) {
+        const rows = Array.from(table.querySelectorAll('tr')).map(tr =>
+            Array.from(tr.children).map(cell => inlineText(cell).replace(/\|/g, '\\|'))
+        ).filter(row => row.some(Boolean));
+
+        if (!rows.length) return '';
+
+        const width = Math.max(...rows.map(r => r.length));
+        rows.forEach(r => { while (r.length < width) r.push(''); });
+
+        const header = rows[0];
+        const separator = header.map(() => '---');
+        return [
+            '| ' + header.join(' | ') + ' |',
+            '| ' + separator.join(' | ') + ' |',
+            ...rows.slice(1).map(r => '| ' + r.join(' | ') + ' |')
+        ].join('\n');
+    }
+
+    function convertList(list, level) {
+        const ordered = list.tagName.toLowerCase() === 'ol';
+        const indent = '  '.repeat(level || 0);
+        const lines = [];
+        Array.from(list.children).forEach((li, index) => {
+            if (li.tagName.toLowerCase() !== 'li') return;
+            const nested = Array.from(li.children).filter(c => /^(UL|OL)$/i.test(c.tagName));
+            const textParts = Array.from(li.childNodes)
+                .filter(n => !(n.nodeType === 1 && /^(UL|OL)$/i.test(n.tagName)))
+                .map(n => n.textContent || '')
+                .join(' ');
+            const text = normalizeWhitespace(textParts);
+            if (text) lines.push(indent + (ordered ? `${index + 1}. ` : '- ') + text);
+            nested.forEach(n => lines.push(convertList(n, (level || 0) + 1)));
+        });
+        return lines.join('\n');
+    }
+
+    function elementToMarkdown(root) {
+        const clone = cleanClone(root);
+        const blocks = [];
+
+        function walk(node) {
+            if (node.nodeType !== 1) return;
+            const tag = node.tagName.toLowerCase();
+
+            if (/^h[1-6]$/.test(tag)) {
+                const level = Number(tag.substring(1));
+                const text = inlineText(node);
+                if (text) blocks.push('#'.repeat(level) + ' ' + text);
+                return;
+            }
+            if (tag === 'table') {
+                const table = convertTable(node);
+                if (table) blocks.push(table);
+                return;
+            }
+            if (tag === 'ul' || tag === 'ol') {
+                const list = convertList(node, 0);
+                if (list) blocks.push(list);
+                return;
+            }
+            if (tag === 'p') {
+                const text = inlineText(node);
+                if (text) blocks.push(text);
+                return;
+            }
+
+            // Preserve meaningful text blocks without duplicating child headings/tables/lists.
+            const directMeaningfulChildren = Array.from(node.children).some(c =>
+                /^(H[1-6]|TABLE|UL|OL|P)$/i.test(c.tagName)
+            );
+
+            if (!directMeaningfulChildren) {
+                const text = inlineText(node);
+                if (text) blocks.push(text);
+                return;
+            }
+
+            Array.from(node.children).forEach(walk);
+        }
+
+        Array.from(clone.children).forEach(walk);
+        return blocks.join('\n\n').replace(/\n{3,}/g, '\n\n').trim();
+    }
+
+    function getExportTitle() {
+        const seed = document.getElementById('seed-target-kw');
+        return normalizeWhitespace(seed?.value || '') || 'SEO Matrix Analysis';
+    }
+
+    function buildMarkdown() {
+        const sections = EXPORT_SECTION_IDS
+            .map(id => document.getElementById(id))
+            .filter(el => el && el.textContent.trim());
+
+        if (!sections.length) return '';
+
+        const generatedAt = new Date().toLocaleString('fa-IR');
+        const lines = [
+            '# گزارش تحلیل ماتریس سئو',
+            '',
+            `**کلمه کلیدی اصلی:** ${getExportTitle()}`,
+            '',
+            `**تاریخ تولید گزارش:** ${generatedAt}`,
+            '',
+            '---',
+            ''
+        ];
+
+        sections.forEach(section => {
+            const content = elementToMarkdown(section);
+            if (content) {
+                lines.push(content);
+                lines.push('', '---', '');
+            }
+        });
+
+        return mdEscape(lines.join('\n')) + '\n';
+    }
+
+    function safeFileName(value) {
+        return String(value || 'seo-matrix-report')
+            .replace(/[\\/:*?"<>|]/g, '-')
+            .replace(/\s+/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/^-|-$/g, '')
+            .slice(0, 100) || 'seo-matrix-report';
+    }
+
+    window.exportDashboardToMarkdown = function () {
+        const markdown = buildMarkdown();
+        if (!markdown) {
+            alert('ابتدا تحلیل را اجرا کنید تا داده‌های گزارش برای خروجی آماده شوند.');
+            return;
+        }
+
+        const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = safeFileName(getExportTitle()) + '-seo-analysis.md';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
+
+    window.refreshMarkdownExportState = function () {
+        const btn = document.getElementById('export-md-btn');
+        if (!btn) return;
+        const hasResults = EXPORT_SECTION_IDS.some(id => {
+            const el = document.getElementById(id);
+            return el && el.textContent.trim().length > 0;
+        });
+        btn.disabled = !hasResults;
+    };
+
+    // Results are rendered asynchronously, so watch the result containers.
+    const observer = new MutationObserver(window.refreshMarkdownExportState);
+    EXPORT_SECTION_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) observer.observe(el, { childList: true, subtree: true });
+    });
+    window.addEventListener('load', window.refreshMarkdownExportState);
+})();
 </script>
 
 <button type="button" id="ux-top" aria-label="بازگشت به بالا" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
