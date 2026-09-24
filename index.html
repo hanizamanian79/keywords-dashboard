@@ -6,7 +6,7 @@
     <meta name="description" content="داشبورد تحلیل پیشرفته سئو برای تحلیل کلمات کلیدی، Google Search Console، ساختار صفحات و شکاف محتوایی رقبا.">
     <meta name="robots" content="noindex, nofollow">
     <meta name="theme-color" content="#6366f1">
-    <title>داشبورد تحلیل سئو برای تحلیل کلمات کلیدی</title>
+    <title>داشبورد تحلیل کلمات کلیدی</title>
     <style>
         /* Import Vazirmatn Font */
         @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;800;900&display=swap');
@@ -720,6 +720,189 @@
             outline: 3px solid #818cf8;
             outline-offset: 2px;
         }
+
+        /* =====================================================
+           UX/UI REFINEMENT LAYER (visual only – no logic changes)
+           ===================================================== */
+        html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+        body { padding: 0 1.25rem 4rem; line-height: 1.75; -webkit-font-smoothing: antialiased; }
+        .container { max-width: 1400px; margin-inline: auto; }
+
+        /* Hero header */
+        header { margin: 0 -1.25rem 1.5rem; padding: 2rem 1.5rem 3.25rem; text-align: center;
+            background: linear-gradient(135deg, #312e81 0%, #4f46e5 55%, #6366f1 100%); border-radius: 0 0 28px 28px; }
+        header h1 { color: #fff !important; margin: 0; font-size: clamp(1.25rem, 2.6vw, 1.9rem); font-weight: 800; letter-spacing: -0.2px; }
+
+        /* Sticky jump navigation */
+        #ux-nav { position: sticky; top: 10px; z-index: 50; display: none; gap: .4rem; overflow-x: auto; padding: .45rem;
+            margin: -2.1rem auto 1.5rem; max-width: 100%; background: rgba(255,255,255,.92); backdrop-filter: blur(10px);
+            border: 1px solid var(--border-subtle); border-radius: 999px; box-shadow: 0 6px 24px rgba(30,27,75,.12); scrollbar-width: none; }
+        #ux-nav.show { display: flex; }
+        #ux-nav::-webkit-scrollbar { display: none; }
+        #ux-nav a { flex: 0 0 auto; padding: .4rem .95rem; border-radius: 999px; font-size: .82rem; font-weight: 700;
+            color: var(--text-body); text-decoration: none; white-space: nowrap; transition: var(--transition-smooth); }
+        #ux-nav a:hover { background: var(--primary-light); color: var(--primary-hover); }
+        #ux-nav a.active { background: var(--primary); color: #fff; }
+
+        /* Cards */
+        .card { border-radius: 18px; border: 1px solid var(--border-subtle); box-shadow: 0 2px 10px rgba(15,23,42,.05);
+            padding: 1.5rem 1.6rem; transition: box-shadow .2s ease; }
+        .card:hover { box-shadow: 0 8px 24px rgba(15,23,42,.08); }
+        .card > h2 { display: flex; align-items: center; flex-wrap: wrap; gap: .6rem; font-size: 1.2rem; font-weight: 800;
+            padding-bottom: .9rem; margin-bottom: 1.1rem; border-bottom: 2px solid var(--bg-neutral-light); }
+        .card h3 { font-weight: 700; }
+
+        /* Input form */
+        .dashboard-grid { gap: 1.1rem; }
+        .control-group { background: var(--bg-neutral-light); border: 1px solid var(--border-subtle); border-radius: 14px; padding: 1rem; transition: var(--transition-smooth); }
+        .control-group:focus-within { border-color: var(--border-active); background: #fff; box-shadow: 0 0 0 4px rgba(99,102,241,.12); }
+        .control-group label { display: flex; align-items: center; justify-content: space-between; gap: .5rem; flex-wrap: wrap; font-weight: 700; color: var(--text-heading); margin-bottom: .6rem; }
+        .section-badge { font-weight: 600; }
+        textarea, input[type="text"], input[type="file"] { border-radius: 10px; font-family: inherit; transition: var(--transition-smooth); }
+        textarea:focus, input[type="text"]:focus { outline: none; border-color: var(--border-active); box-shadow: 0 0 0 3px rgba(99,102,241,.18); }
+        :focus-visible { outline: 3px solid rgba(99,102,241,.45); outline-offset: 2px; }
+
+        /* Primary action */
+        .action-buttons { position: sticky; bottom: 0; z-index: 20; padding: .9rem 0 .2rem; margin-top: 1rem;
+            background: linear-gradient(to top, #fff 65%, rgba(255,255,255,0)); }
+        #start-btn { border-radius: 12px; font-weight: 800; font-size: 1.02rem; padding: .85rem 2rem;
+            background: linear-gradient(135deg, #4f46e5, #6366f1); box-shadow: 0 6px 18px rgba(79,70,229,.35); transition: var(--transition-smooth); }
+        #start-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(79,70,229,.42); }
+        #start-btn:active { transform: translateY(0); }
+        .status-bar { border-radius: 10px; }
+
+        /* Tables */
+        .scrollable-table-box, .table-responsive { border: 1px solid var(--border-subtle); border-radius: 12px; }
+        table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: .88rem; }
+        thead th { position: sticky; top: 0; z-index: 2; background: #eef2ff; color: var(--text-heading); font-weight: 800;
+            font-size: .8rem; padding: .65rem .8rem; border-bottom: 2px solid var(--border-active); }
+        tbody td { padding: .55rem .8rem; border-bottom: 1px solid var(--bg-neutral-light); }
+        tbody tr:nth-child(even) { background: rgba(248,250,252,.9); }
+        tbody tr:hover { background: var(--primary-light) !important; }
+        td:not(:first-child), th:not(:first-child) { font-variant-numeric: tabular-nums; }
+
+        /* Keyword list rows & lists */
+        .suggested-kw-item { border-radius: 12px; border: 1px solid var(--border-subtle); transition: var(--transition-smooth); }
+        .suggested-kw-item:hover { border-color: var(--border-active); box-shadow: 0 4px 14px rgba(99,102,241,.12); transform: translateY(-1px); }
+        .badge { border-radius: 6px; font-weight: 700; letter-spacing: .2px; }
+        li { line-height: 1.8; }
+
+        /* Read-more & clear buttons */
+        .read-more-btn { border-radius: 999px; font-weight: 700; padding: .4rem 1.1rem; transition: var(--transition-smooth); cursor: pointer; }
+        .read-more-btn:hover { background: var(--primary-light); color: var(--primary-hover); }
+
+        /* Back to top */
+        #ux-top { position: fixed; bottom: 22px; left: 22px; z-index: 60; width: 46px; height: 46px; border: none; border-radius: 50%;
+            background: var(--primary); color: #fff; font-size: 1.2rem; cursor: pointer; box-shadow: 0 6px 18px rgba(79,70,229,.4);
+            opacity: 0; pointer-events: none; transform: translateY(10px); transition: var(--transition-smooth); }
+        #ux-top.show { opacity: 1; pointer-events: auto; transform: none; }
+        #ux-top:hover { background: var(--primary-hover); }
+
+        /* Result sections fade in */
+        #gsc-section > *, #suggested-keywords-section > *, #gap-analysis-section > *, #url-matrix-section > *,
+        #phrase-results-section > *, #intent-section > *, #detailed-gaps-section > * { animation: uxFade .35s ease both; }
+        @keyframes uxFade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+        @media (max-width: 900px) {
+            .card { padding: 1.1rem; }
+            header { padding: 1.5rem 1rem 3rem; }
+        }
+        @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+        @media print { header, #ux-nav, #ux-top, .action-buttons { display: none !important; } .card { box-shadow: none; break-inside: avoid; } }
+
+        /* ---------- UX pass 2 (visual only) ---------- */
+        /* Back-to-top: was inheriting the global button width */
+        #ux-top { flex: none; min-width: 0; width: 46px; height: 46px; padding: 0; line-height: 1; display: grid; place-items: center; }
+
+        /* Sections 2 & 3: keyword cards */
+        .suggested-kw-card, .gap-kw-card { margin-top: .5rem; padding: 1.1rem; box-shadow: none; }
+        .scrollable-kw-list { max-height: 520px; padding: .75rem; scrollbar-width: thin; scrollbar-color: #c7d2fe transparent; }
+        .suggested-kw-list { grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: .8rem; }
+        .suggested-kw-item { position: relative; gap: .55rem !important; padding: .85rem 1rem; background: #fff; border-right: 3px solid var(--accent-emerald); }
+        .gap-kw-card .suggested-kw-item { border-right-color: var(--accent-amber); }
+        .suggested-kw-item > div:first-child { flex-wrap: wrap; align-items: flex-start; gap: .5rem !important; }
+        .suggested-kw-item > div:first-child > span:first-child { flex: 1 1 60%; min-width: 0; line-height: 1.9; font-weight: 700; }
+        .suggested-kw-item strong { display: inline-block; min-width: 2.1rem; text-align: center; margin-inline-end: .5rem; padding: .05rem .4rem;
+            border-radius: 6px; background: var(--primary-light); color: var(--primary-hover); font-size: .72rem; font-weight: 800; }
+        .suggested-kw-item > div:first-child .badge { margin-inline-start: .4rem; }
+        .suggested-score, .gap-score, .comp-gap-score { flex: 0 0 auto; white-space: nowrap; font-family: inherit; font-size: .74rem; font-weight: 700;
+            padding: .15rem .6rem; border-radius: 999px; background: var(--bg-neutral-light); }
+        .suggested-kw-item > div:last-child { display: flex; flex-wrap: wrap; gap: .3rem; width: 100%; padding-top: .55rem; border-top: 1px dashed var(--border-subtle); }
+
+        /* Section 5: per-source phrase matrix */
+        .table-responsive:has(.phrase-scroll-box) { overflow-x: auto; }
+        .table-responsive:has(.phrase-scroll-box) table { min-width: 1180px; table-layout: fixed; }
+        .table-responsive:has(.phrase-scroll-box) th:first-child, .table-responsive:has(.phrase-scroll-box) td:first-child {
+            position: sticky; right: 0; z-index: 3; background: #fff; width: 150px; box-shadow: -6px 0 10px -8px rgba(15,23,42,.25); }
+        .table-responsive:has(.phrase-scroll-box) thead th:first-child { z-index: 4; background: #eef2ff; }
+        .table-responsive:has(.phrase-scroll-box) td { padding: .7rem; vertical-align: top; }
+        .phrase-scroll-box { max-height: 400px; padding-inline: .1rem .35rem; scrollbar-width: thin; scrollbar-color: #c7d2fe transparent; }
+        .phrase-item { flex-direction: column; align-items: stretch; gap: .4rem; padding: .55rem .7rem; background: #fff;
+            border-right: 3px solid var(--primary); transition: var(--transition-smooth); }
+        .phrase-item:hover { border-color: var(--border-active); box-shadow: 0 3px 10px rgba(99,102,241,.12); }
+        .phrase-wrapper { flex-direction: column; align-items: flex-start; gap: .35rem; }
+        .phrase-wrapper .phrase-text { line-height: 1.7; word-break: normal; overflow-wrap: anywhere; }
+        .phrase-wrapper .seo-tag { margin: 0 .3rem 0 0; display: inline-block; }
+        .phrase-item .count-badge { align-self: flex-start; white-space: normal; font-weight: 700; padding: .15rem .55rem; border-radius: 999px; background: var(--accent-emerald-bg); border-color: transparent; }
+
+        /* ---------- UX pass 3: compact phrase cards (T / H1 / MD in one row) ---------- */
+        .phrase-item { flex-direction: row; flex-wrap: wrap; align-items: center; column-gap: .35rem; row-gap: .3rem; padding: .5rem .65rem; }
+        .phrase-item .phrase-wrapper { display: contents; }
+        .phrase-item .phrase-text { flex: 1 1 100%; line-height: 1.6; }
+        .phrase-item .seo-tag { flex: 0 0 auto; margin: 0; padding: .08rem .42rem; font-size: .68rem; line-height: 1.5; }
+        .phrase-item .count-badge { margin-inline-start: auto; align-self: center; white-space: nowrap; font-size: .74rem; padding: .1rem .5rem; }
+
+        /* ---------- UX pass 4: neutral density pill + tighter card padding (phrase matrix only) ---------- */
+        .phrase-item .count-badge { background: transparent; border: 1px solid var(--border-subtle); color: var(--accent-emerald); padding: .05rem .45rem; }
+        .phrase-item { padding: .4rem .55rem; margin-bottom: .4rem; row-gap: .2rem; }
+        .phrase-item .phrase-text { line-height: 1.5; }
+        .phrase-scroll-box { padding-inline: 0 .3rem; }
+        .table-responsive:has(.phrase-scroll-box) td { padding: .55rem .5rem; }
+
+        /* ---------- UX pass 5: T / H1 / MD tags joined with no gap ---------- */
+        .phrase-item { column-gap: 0; }
+        .phrase-item .seo-tag { margin: 0 !important; border-radius: 0; margin-inline-end: -1px !important; }
+        .phrase-item .phrase-text { margin-bottom: 0; }
+        .phrase-item .count-badge { margin-inline-start: auto; }
+
+        /* ---------- UX pass 6: zebra rows for the phrase matrix (section 5) ---------- */
+        .table-responsive:has(.phrase-scroll-box) tbody tr:nth-child(odd),
+        .table-responsive:has(.phrase-scroll-box) tbody tr:nth-child(odd) td { background: #ffffff !important; }
+        .table-responsive:has(.phrase-scroll-box) tbody tr:nth-child(even),
+        .table-responsive:has(.phrase-scroll-box) tbody tr:nth-child(even) td { background: #e6ebf5 !important; }
+        .table-responsive:has(.phrase-scroll-box) tbody tr:hover,
+        .table-responsive:has(.phrase-scroll-box) tbody tr:hover td { background: #dbe4ff !important; }
+        .table-responsive:has(.phrase-scroll-box) tbody td { border-bottom: 1px solid #cbd5e1; }
+
+        /* ---------- UX pass 7: calm, low-noise phrase matrix (section 5) ---------- */
+        .table-responsive:has(.phrase-scroll-box) tbody tr:nth-child(odd),
+        .table-responsive:has(.phrase-scroll-box) tbody tr:nth-child(odd) td { background: #ffffff !important; }
+        .table-responsive:has(.phrase-scroll-box) tbody tr:nth-child(even),
+        .table-responsive:has(.phrase-scroll-box) tbody tr:nth-child(even) td { background: #f5f7fb !important; }
+        .table-responsive:has(.phrase-scroll-box) tbody tr:hover,
+        .table-responsive:has(.phrase-scroll-box) tbody tr:hover td { background: #f5f7fb !important; }
+        .table-responsive:has(.phrase-scroll-box) tbody td { border-bottom: 1px solid var(--border-subtle); border-left: 1px solid #eef1f6; padding: .5rem .7rem; }
+        .table-responsive:has(.phrase-scroll-box) tbody td:first-child { font-size: .85rem; line-height: 1.6; }
+        .table-responsive:has(.phrase-scroll-box) thead th { font-size: .78rem; text-align: right; }
+
+        /* Scroll area: shows ~5 phrases, soft fade hints there is more */
+        .phrase-scroll-box { max-height: 285px; padding-inline: 0 .4rem; scrollbar-width: thin; scrollbar-color: #d5dbe8 transparent;
+            -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent); }
+
+        /* Phrase rows: flat list instead of boxed cards */
+        .phrase-item { background: transparent !important; border: 0; border-bottom: 1px solid #e9edf5; border-radius: 0; box-shadow: none;
+            margin: 0; padding: .45rem .25rem; row-gap: .15rem; }
+        .phrase-item:last-child { border-bottom: 0; }
+        .phrase-item:hover { background: rgba(99,102,241,.06) !important; box-shadow: none; border-color: #e9edf5; }
+        .phrase-item .phrase-text { font-size: .84rem; font-weight: 600; line-height: 1.55; color: var(--text-heading); unicode-bidi: plaintext; text-align: start; }
+        /* the first phrase in each cell is the strongest: give it a little emphasis */
+        .phrase-scroll-box > .phrase-item:first-child .phrase-text { font-weight: 800; }
+
+        /* Tags: tiny, quiet chips */
+        .phrase-item .seo-tag { font-size: .6rem; font-weight: 700; padding: .02rem .32rem; line-height: 1.6; background: #fff; border: 1px solid #e2e8f0; opacity: .85; }
+
+        /* Numbers: muted secondary info, not a colored block */
+        .phrase-item .count-badge { background: transparent; border: 0; padding: 0; color: var(--text-muted); font-size: .7rem; font-weight: 500; font-variant-numeric: tabular-nums; }
     </style>
 </head>
 <body>
@@ -728,6 +911,7 @@
     <header>
         <h1>داشبورد تحلیل پیشرفته سئو برای تحلیل کلمات کلیدی</h1>
     </header>
+    <nav id="ux-nav" aria-label="پیمایش سریع بین بخش‌ها"></nav>
     
     <div class="card">
        
@@ -826,6 +1010,31 @@ let paafNormalizedList = [];
 
 let rawCalculatedOurGaps = [];
 let rawCalculatedCompGapsList = []; // [{ containerId, countId, wrapperId, gaps: [...] }]
+
+// ---------------------------------------------------------------
+// عبارات حذف‌شده از پیکره‌ی کلمات و محاسبه‌ی چگالی (بدون تاثیر بر Title / H1 / Meta)
+// جداکننده‌ی " | " باعث می‌شود بعد از حذف، عبارت‌های اطراف به هم نچسبند.
+// ---------------------------------------------------------------
+const CORPUS_EXCLUDED_PHRASES = [
+    "افزودن به سبد خرید",
+    "سبد خرید",
+    "تومان",
+    "هزارتومان",
+    "هزار تومان",
+    "به سبد خرید",
+    "نام کاربری"
+];
+const CORPUS_EXCLUDED_REGEX = (function () {
+    const fa = "\\u0600-\\u06FF\\u200c";
+    const parts = CORPUS_EXCLUDED_PHRASES
+        .slice()
+        .sort((a, b) => b.length - a.length)
+        .map(ph => ph.split(/\s+/).join("[\\s\\u200c]+").replace(/ی/g, "[یيی]").replace(/ک/g, "[کك]"));
+    return new RegExp("(?<![" + fa + "])(?:" + parts.join("|") + ")(?![" + fa + "])", "g");
+})();
+function stripCorpusExcludedPhrases(text = "") {
+    return String(text).replace(CORPUS_EXCLUDED_REGEX, " | ");
+}
 
 function normalizeText(value = "") {
     return String(value)
@@ -1133,7 +1342,7 @@ function parseOurPageContent(inputContent) {
     if (inputContent.includes('<') && inputContent.includes('>')) {
         return parseHtmlDocument("صفحه وب خودی (Our Page)", inputContent);
     } else {
-        const pureBodyText = inputContent.replace(/\s+/g, " ").trim();
+        const pureBodyText = stripCorpusExcludedPhrases(inputContent.replace(/\s+/g, " ").trim());
         const fullTextLower = normalizeText(pureBodyText);
         const tokens = tokenizeText(pureBodyText);
         return {
@@ -1230,7 +1439,7 @@ function parseHtmlDocument(label, htmlContent) {
 
     const cleanDoc = doc.cloneNode(true);
     cleanDoc.querySelectorAll("script, style, svg, path, iframe, nav, header, footer, noscript, link, head, dialog").forEach(el => el.remove());
-    const pureBodyText = cleanDoc.body ? cleanDoc.body.textContent.replace(/\s+/g, " ").trim() : "";
+    const pureBodyText = stripCorpusExcludedPhrases(cleanDoc.body ? cleanDoc.body.textContent.replace(/\s+/g, " ").trim() : "");
 
     // ---------------------------------------------------------------
     // متنِ «کاملِ قابل جست‌وجو» برای تحلیل پوشش/عدم پوشش کلمات کلیدی
@@ -1248,9 +1457,9 @@ function parseHtmlDocument(label, htmlContent) {
         if (!/ld\+json|application\/json/.test(type)) el.remove();
     });
 
-    const visibleTextAll = searchDoc.body
+    const visibleTextAll = stripCorpusExcludedPhrases(searchDoc.body
         ? searchDoc.body.textContent.replace(/\s+/g, " ").trim()
-        : "";
+        : "");
 
     // متن درون همهٔ اتریبیوت‌های معنادار در کل سند
     const TEXT_ATTRS = [
@@ -1285,7 +1494,7 @@ function parseHtmlDocument(label, htmlContent) {
         .map(m => (m.getAttribute("content") || "").trim())
         .filter(v => v && !/^https?:\/\//i.test(v));
 
-    const searchableText = [
+    const searchableText = stripCorpusExcludedPhrases([
         title,
         metaDesc,
         metaTextParts.join(" | "),
@@ -1293,7 +1502,7 @@ function parseHtmlDocument(label, htmlContent) {
         altTexts.join(" | "),
         anchorTexts.join(" | "),
         attrTextParts.join(" | ")
-    ].filter(Boolean).join(" | ");
+    ].filter(Boolean).join(" | "));
 
     // fullCombinedText اکنون همان متن کاملِ قابل جست‌وجوست تا هیچ کلمه‌ای از قلم نیفتد
     const fullCombinedText = searchableText;
@@ -1307,12 +1516,12 @@ function parseHtmlDocument(label, htmlContent) {
     // اینجا هر بخش فقط یک‌بار می‌آید: Title، Meta Description، متن دیدهٔ کاربر،
     // و alt تصاویر (که در متن دیده نمی‌شود و تکراری نیست).
     // ---------------------------------------------------------------
-    const densityText = [
+    const densityText = stripCorpusExcludedPhrases([
         title,
         metaDesc,
         visibleTextAll,
         altTexts.join(" | ")
-    ].filter(Boolean).join(" | ");
+    ].filter(Boolean).join(" | "));
 
     const fullTextLower = normalizeText(fullCombinedText);
     const tokens = tokenizeText(fullCombinedText);
@@ -1457,6 +1666,7 @@ function renderGscInsights(container) {
         .filter(item => item.position >= 1 && item.position <= 10)
         .sort((a, b) => b.impressions - a.impressions)
         .slice(0, 15);
+    const topRankingQuerySet = new Set(topRanking.map(q => q.query));
 
     let html = `
         <div class="card">
@@ -1468,7 +1678,7 @@ function renderGscInsights(container) {
                         <table>
                             <thead><tr><th>Query</th><th>Impressions</th><th>Position</th></tr></thead>
                             <tbody>
-                                ${topImpressions.map(q => `<tr><td style="direction:ltr; text-align:left;">${escapeHtml(q.query)}</td><td>${q.impressions}</td><td>${q.position}</td></tr>`).join('')}
+                                ${topImpressions.map(q => { const isMissing = !topRankingQuerySet.has(q.query); return `<tr${isMissing ? ' style="background-color:#fef08a;" title="این کوئری در جدول ⭐ ۱۵ کوئری برتر وجود ندارد"' : ''}><td style="direction:ltr; text-align:left;">${escapeHtml(q.query)}</td><td>${q.impressions}</td><td>${q.position}</td></tr>`; }).join('')}
                             </tbody>
                         </table>
                     </div>
@@ -1556,11 +1766,13 @@ async function renderTop100SuggestedKeywords(container, statusDiv) {
             <div class="suggested-kw-list scrollable-kw-list">
                 ${sortedCandidates.map((item, index) => {
                     const badgesHtml = item.badges.map(b => getBadgeHtml(b)).join(' ');
+                    const isUsed = !!ourWebpageData && phraseExists(item.phrase, ourWebpageData);
+                    const usedHtml = isUsed ? ' <span class="badge" style="background-color:#dcfce7; color:#166534; border:1px solid #86efac;" title="این عبارت در منبع/صفحه خودتان پوشش داده شده است">used</span>' : '';
 
                     return `
                         <div class="suggested-kw-item" style="flex-direction: column; align-items: flex-start; gap: 0.3rem;">
                             <div style="display: flex; justify-content: space-between; width: 100%;">
-                                <span><strong>#${index + 1}</strong>${escapeHtml(item.phrase)}</span>
+                                <span><strong>#${index + 1}</strong>${escapeHtml(item.phrase)}${usedHtml}</span>
                                 <span class="suggested-score">تعداد حضور: ${item.presenceCount} سکشن</span>
                             </div>
                             <div>${badgesHtml}</div>
@@ -1872,11 +2084,13 @@ async function renderIntentAnalysisSection(container) {
 
     const mapToListHtml = (items) => items.map(item => {
         const badgesHtml = item.badges.map(b => getBadgeHtml(b)).join(' ');
+        const isUsed = !!ourWebpageData && phraseExists(item.text, ourWebpageData);
+        const usedHtml = isUsed ? ' <span class="badge" style="background-color:#dcfce7; color:#166534; border:1px solid #86efac;" title="این عبارت در منبع/صفحه خودتان پوشش داده شده است">used</span>' : '';
 
         return `
             <li style="margin-bottom:0.6rem; display: flex; flex-direction: column; gap: 0.2rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span>${escapeHtml(item.text)}</span>
+                    <span>${escapeHtml(item.text)}${usedHtml}</span>
                     <span class="count-badge">امتیاز: ${item.score}</span>
                 </div>
                 <div>${badgesHtml}</div>
@@ -2085,6 +2299,35 @@ async function renderDetailedGapSections(container, statusDiv) {
     container.innerHTML = html;
 }
 
+</script>
+
+<button type="button" id="ux-top" aria-label="بازگشت به بالا" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+<script>
+/* UX helper: visual navigation only – does not touch analysis logic */
+(function () {
+    var ids = ['gsc-section','suggested-keywords-section','gap-analysis-section','url-matrix-section','phrase-results-section','intent-section','detailed-gaps-section'];
+    var nav = document.getElementById('ux-nav'), topBtn = document.getElementById('ux-top');
+    function build() {
+        var html = '';
+        ids.forEach(function (id) {
+            var el = document.getElementById(id), h = el && el.querySelector('h2');
+            if (!h) return;
+            var label = h.textContent.replace(/📊[^\d۰-۹]*تحلیل حضور چندکانالی/, '').replace(/^[\s\d۰-۹.\-]+/, '').trim();
+            if (label.length > 34) label = label.slice(0, 34) + '…';
+            html += '<a href="#' + id + '" data-id="' + id + '">' + label + '</a>';
+        });
+        if (nav.innerHTML !== html) nav.innerHTML = html;
+        nav.classList.toggle('show', !!html);
+    }
+    var t; var mo = new MutationObserver(function () { clearTimeout(t); t = setTimeout(build, 150); });
+    ids.forEach(function (id) { var el = document.getElementById(id); if (el) mo.observe(el, { childList: true }); });
+    window.addEventListener('scroll', function () {
+        topBtn.classList.toggle('show', window.scrollY > 600);
+        var cur = '';
+        ids.forEach(function (id) { var el = document.getElementById(id); if (el && el.getBoundingClientRect().top < 140) cur = id; });
+        nav.querySelectorAll('a').forEach(function (a) { a.classList.toggle('active', a.dataset.id === cur); });
+    }, { passive: true });
+})();
 </script>
 </body>
 </html>
